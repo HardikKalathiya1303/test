@@ -1,0 +1,98 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Import Inter font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* Global base styles */
+@layer base {
+  /* Removed invalid border-border utility */
+  
+  html {
+    @apply scroll-smooth;
+  }
+  
+  body {
+    @apply font-sans antialiased;
+    @apply min-h-screen flex flex-col;
+  }
+}
+
+/* Main gradient background for auth pages */
+.main-gradient-bg {
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 50%, #f8fafc 100%);
+}
+
+/* Registration page background */
+.registration-bg {
+  background: radial-gradient(circle at top left, #f8fafc 0%, #f1f5f9 100%);
+}
+
+/* Password strength meter transitions */
+.strength-meter-bar {
+  transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
+}
+
+/* Custom component styles */
+@layer components {
+  /* Button variants */
+  .btn-primary {
+    @apply w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800;
+    @apply text-white font-bold py-3.5 px-4 rounded-xl;
+    @apply transition-all duration-200 shadow-lg shadow-blue-100;
+    @apply transform active:scale-[0.98] focus:ring-4 focus:ring-blue-500/20;
+  }
+  
+  .btn-brand {
+    @apply w-full py-3.5 px-4 bg-gradient-to-r from-brand-600 to-brand-700;
+    @apply hover:from-brand-700 hover:to-brand-800;
+    @apply text-white font-bold rounded-lg shadow-lg shadow-brand-500/30;
+    @apply transform transition-all active:scale-[0.98] focus:ring-4 focus:ring-brand-500/20;
+  }
+
+  /* Input field styles */
+  .input-field {
+    @apply w-full px-4 py-3 rounded-xl border border-slate-200;
+    @apply focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+    @apply outline-none transition-all duration-200 placeholder:text-slate-400;
+  }
+  
+  .input-field-brand {
+    @apply w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg;
+    @apply focus:ring-2 focus:ring-brand-500 focus:border-brand-500;
+    @apply transition-all outline-none;
+  }
+
+  /* Card styles */
+  .auth-card {
+    @apply w-full max-w-md bg-white rounded-2xl shadow-xl shadow-slate-200/60;
+    @apply border border-slate-100 overflow-hidden;
+  }
+  
+  .form-card {
+    @apply bg-white p-8 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100;
+  }
+
+  /* Logo styles */
+  .brand-logo {
+    @apply w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl;
+    @apply flex items-center justify-center shadow-lg shadow-blue-200;
+  }
+  
+  .brand-logo-small {
+    @apply inline-flex items-center justify-center w-12 h-12 mb-4;
+    @apply bg-brand-600 rounded-lg shadow-lg shadow-brand-500/20;
+  }
+}
+
+/* Utility classes */
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent;
+  }
+  
+  .brand-text-gradient {
+    @apply bg-gradient-to-r from-brand-600 to-brand-700 bg-clip-text text-transparent;
+  }
+}

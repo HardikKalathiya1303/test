@@ -10,7 +10,13 @@ const { validatePassword, generateOTP, generateRandomPassword } = require('../ut
 // @access  Public
 exports.register = async (req, res) => {
   try {
-    const { email, password, firstName, lastName, confirmPassword } = req.body;
+    const { email, password, firstName, lastName, confirmPassword, role = 'buyer', companyName } = req.body;
+    
+    // Validate role
+    const allowedRoles = ['buyer', 'man_user'];
+    if (!allowedRoles.includes(role)) {
+      return errorResponse(res, 'Invalid role selected. Only buyer and man_user are allowed for registration.', 400);
+    }
     
     // Check if user exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
@@ -29,14 +35,32 @@ exports.register = async (req, res) => {
       return errorResponse(res, 'Passwords do not match', 400);
     }
     
+    // For buyer role, company name is required
+    if (role === 'buyer' && !companyName) {
+      return errorResponse(res, 'Company name is required for buyer registration', 400);
+    }
+    
     // Create user
     const user = await User.create({
       email: email.toLowerCase(),
       password,
       firstName,
       lastName,
-      role: 'buyer' // Default role for self-registration
+      role
     });
+    
+    // Create buyer record if role is buyer
+    if (role === 'buyer') {
+      await Buyer.create({
+        userId: user._id,
+        companyName,
+        contactPerson: {
+          name: `${firstName} ${lastName}`,
+          email: email.toLowerCase()
+        },
+        status: 'active'
+      });
+    }
     
     // Send welcome email
     // await sendEmail(user.email, 'welcome', { name: user.firstName }, user.firstName); // Email functionality disabled

@@ -40,6 +40,8 @@ app.use('/api/locations', require('./routes/location.routes'));
 app.use('/api/content', require('./routes/content.routes'));
 app.use('/api/contact', require('./routes/contact.routes'));
 app.use('/api/buyer', require('./routes/buyer.routes'));
+app.use('/api/man-user', require('./routes/manuser.routes'));
+app.use('/api/admin', require('./routes/admin.routes'));
 
 // Health check
 app.get('/api/health', (req, res) => {

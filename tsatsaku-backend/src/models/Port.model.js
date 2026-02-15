@@ -44,7 +44,6 @@ const portSchema = new mongoose.Schema({
 });
 
 // Indexes
-portSchema.index({ code: 1 });
 portSchema.index({ type: 1 });
 portSchema.index({ status: 1 });
 

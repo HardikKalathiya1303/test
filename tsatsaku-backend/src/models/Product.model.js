@@ -164,8 +164,6 @@ productSchema.set('toJSON', { virtuals: true });
 productSchema.set('toObject', { virtuals: true });
 
 // Indexes
-productSchema.index({ sku: 1 });
-productSchema.index({ slug: 1 });
 productSchema.index({ category: 1 });
 productSchema.index({ status: 1 });
 productSchema.index({ name: 'text', description: 'text', tags: 'text' });

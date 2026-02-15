@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const ContentPage = require('./models/ContentPage.model');
 const User = require('./models/User.model');
+const Buyer = require('./models/Buyer.model');
 
 dotenv.config();
 
@@ -10,8 +11,11 @@ const seedData = async () => {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('MongoDB Connected');
 
-    // Check if admin exists, if not create one
-    const adminExists = await User.findOne({ role: 'admin' });
+    // Create test users for all roles
+    console.log('Creating test users...');
+    
+    // Admin User
+    const adminExists = await User.findOne({ email: 'admin@tsatsaku.com' });
     if (!adminExists) {
       await User.create({
         email: 'admin@tsatsaku.com',
@@ -21,9 +25,78 @@ const seedData = async () => {
         role: 'admin',
         status: 'active'
       });
-      console.log('Admin user created');
-      console.log('Email: admin@tsatsaku.com');
-      console.log('Password: Admin@123456');
+      console.log('✅ Admin user created: admin@tsatsaku.com / Admin@123456');
+    } else {
+      console.log('ℹ️ Admin user already exists');
+    }
+    
+    // MAN_User
+    const manUserExists = await User.findOne({ email: 'man@tsatsaku.com' });
+    if (!manUserExists) {
+      await User.create({
+        email: 'man@tsatsaku.com',
+        password: 'ManUser@123',
+        firstName: 'Manager',
+        lastName: 'User',
+        role: 'man_user',
+        status: 'active'
+      });
+      console.log('✅ MAN_User created: man@tsatsaku.com / ManUser@123');
+    } else {
+      console.log('ℹ️ MAN_User already exists');
+    }
+    
+    // Buyer User
+    const buyerExists = await User.findOne({ email: 'buyer@example.com' });
+    if (!buyerExists) {
+      const buyerUser = await User.create({
+        email: 'buyer@example.com',
+        password: 'Buyer@123',
+        firstName: 'Test',
+        lastName: 'Buyer',
+        role: 'buyer',
+        status: 'active'
+      });
+      
+      // Get admin user for createdBy reference
+      const adminUser = await User.findOne({ email: 'admin@tsatsaku.com' });
+      
+      // Create corresponding Buyer record
+      await Buyer.create({
+        userId: buyerUser._id,
+        companyName: 'Test Import Company',
+        companyInfo: {
+          industry: 'Import/Export',
+          website: 'https://testimport.com'
+        },
+        contactPerson: {
+          name: 'Test Buyer',
+          designation: 'Purchasing Manager',
+          email: 'buyer@example.com',
+          phone: '+1234567890'
+        },
+        addresses: {
+          billing: {
+            street: '123 Business Ave',
+            city: 'New York',
+            state: 'NY',
+            country: 'USA',
+            postalCode: '10001'
+          },
+          shipping: {
+            street: '123 Business Ave',
+            city: 'New York',
+            state: 'NY',
+            country: 'USA',
+            postalCode: '10001'
+          }
+        },
+        status: 'active',
+        createdBy: adminUser._id
+      });
+      console.log('✅ Buyer user created: buyer@example.com / Buyer@123');
+    } else {
+      console.log('ℹ️ Buyer user already exists');
     }
 
     // Seed content pages
@@ -104,7 +177,13 @@ const seedData = async () => {
     }
     console.log('Content pages seeded');
 
-    console.log('Database seeding completed!');
+    console.log('✅ Database seeding completed successfully!');
+    console.log('\n=== TEST CREDENTIALS ===');
+    console.log('Admin: admin@tsatsaku.com / Admin@123456');
+    console.log('MAN_User: man@tsatsaku.com / ManUser@123');
+    console.log('Buyer: buyer@example.com / Buyer@123');
+    console.log('========================\n');
+    
     process.exit(0);
   } catch (error) {
     console.error('Seeding error:', error);
@@ -113,3 +192,4 @@ const seedData = async () => {
 };
 
 seedData();
+

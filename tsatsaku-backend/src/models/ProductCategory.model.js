@@ -60,7 +60,6 @@ productCategorySchema.pre('save', function(next) {
 });
 
 // Indexes
-productCategorySchema.index({ slug: 1 });
 productCategorySchema.index({ parentCategory: 1 });
 productCategorySchema.index({ status: 1 });
 productCategorySchema.index({ level: 1 });

@@ -1,5 +1,19 @@
 // Success response
-const successResponse = (res, data, message = 'Success', statusCode = 200) => {
+// Supports both (res, data, message, statusCode) and (res, statusCode, message, data) call patterns
+const successResponse = (res, dataOrCode, messageOrData = 'Success', codeOrData = 200) => {
+  let data, message, statusCode;
+  if (typeof dataOrCode === 'number') {
+    // Called as successResponse(res, statusCode, message, data)
+    statusCode = dataOrCode;
+    message = typeof messageOrData === 'string' ? messageOrData : 'Success';
+    data = codeOrData;
+  } else {
+    // Called as successResponse(res, data, message, statusCode)
+    data = dataOrCode;
+    message = typeof messageOrData === 'string' ? messageOrData : 'Success';
+    statusCode = typeof codeOrData === 'number' ? codeOrData : 200;
+  }
+
   return res.status(statusCode).json({
     success: true,
     message,
@@ -8,7 +22,20 @@ const successResponse = (res, data, message = 'Success', statusCode = 200) => {
 };
 
 // Error response
-const errorResponse = (res, message = 'Error', statusCode = 400, errors = null) => {
+// Supports both (res, message, statusCode) and (res, statusCode, message) call patterns
+const errorResponse = (res, messageOrCode = 'Error', codeOrMessage = 400, errors = null) => {
+  let message, statusCode;
+  if (typeof messageOrCode === 'number') {
+    // Called as errorResponse(res, statusCode, message, errors)
+    statusCode = messageOrCode;
+    message = typeof codeOrMessage === 'string' ? codeOrMessage : 'Error';
+    // errors might be in 4th arg already
+  } else {
+    // Called as errorResponse(res, message, statusCode, errors)
+    message = messageOrCode;
+    statusCode = typeof codeOrMessage === 'number' ? codeOrMessage : 400;
+  }
+
   const response = {
     success: false,
     message

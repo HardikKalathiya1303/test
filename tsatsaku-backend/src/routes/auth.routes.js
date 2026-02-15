@@ -11,7 +11,9 @@ const registerValidation = [
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   body('firstName').notEmpty().trim().withMessage('First name is required'),
   body('lastName').notEmpty().trim().withMessage('Last name is required'),
-  body('confirmPassword').notEmpty().withMessage('Confirm password is required')
+  body('confirmPassword').notEmpty().withMessage('Confirm password is required'),
+  body('role').optional().isIn(['buyer', 'man_user']).withMessage('Role must be buyer or man_user'),
+  body('companyName').optional().trim().isLength({ min: 2, max: 200 }).withMessage('Company name must be between 2-200 characters')
 ];
 
 const loginValidation = [
