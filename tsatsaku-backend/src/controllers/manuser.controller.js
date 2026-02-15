@@ -21,10 +21,10 @@ const MODULE_ACCESS = {
 // Get all sub-users for the current MAN user
 const getSubUsers = async (req, res) => {
   try {
-    const manUserId = req.user.userId;
-    
+    const manUserId = req.user._id;
+
     // Get all users created by this MAN user
-    const subUsers = await User.find({ 
+    const subUsers = await User.find({
       createdBy: manUserId,
       role: 'man_user'
     }).select('-password').sort({ createdAt: -1 });
@@ -55,7 +55,7 @@ const createSubUser = async (req, res) => {
       status = 'active'
     } = req.body;
 
-    const manUserId = req.user.userId;
+    const manUserId = req.user._id;
 
     // Check if email already exists
     const existingUser = await User.findOne({ email });
@@ -87,7 +87,7 @@ const createSubUser = async (req, res) => {
 
     // Return user without password
     const subUser = await User.findById(newSubUser._id).select('-password');
-    
+
     return successResponse(res, 201, 'Sub-user created successfully', subUser);
   } catch (error) {
     console.error('Error creating sub-user:', error);
@@ -99,7 +99,7 @@ const createSubUser = async (req, res) => {
 const getSubUserById = async (req, res) => {
   try {
     const { userId } = req.params;
-    const manUserId = req.user.userId;
+    const manUserId = req.user._id;
 
     const subUser = await User.findOne({
       _id: userId,
@@ -128,7 +128,7 @@ const updateSubUser = async (req, res) => {
     }
 
     const { userId } = req.params;
-    const manUserId = req.user.userId;
+    const manUserId = req.user._id;
     const {
       firstName,
       lastName,
@@ -178,7 +178,7 @@ const updateSubUser = async (req, res) => {
 
     // Return updated user without password
     const updatedSubUser = await User.findById(userId).select('-password');
-    
+
     return successResponse(res, 200, 'Sub-user updated successfully', updatedSubUser);
   } catch (error) {
     console.error('Error updating sub-user:', error);
@@ -191,7 +191,7 @@ const updateSubUserStatus = async (req, res) => {
   try {
     const { userId } = req.params;
     const { status } = req.body;
-    const manUserId = req.user.userId;
+    const manUserId = req.user._id;
 
     if (!['active', 'inactive'].includes(status)) {
       return errorResponse(res, 400, 'Invalid status. Must be active or inactive');
@@ -254,7 +254,7 @@ const validateModuleAccess = (moduleAccess) => {
       const dependencies = MODULE_ACCESS[module].dependencies;
       dependencies.forEach(dep => {
         const depAccess = moduleAccess[dep];
-        const depHasAccess = typeof depAccess === 'boolean' ? depAccess : 
+        const depHasAccess = typeof depAccess === 'boolean' ? depAccess :
           (typeof depAccess === 'object' && depAccess !== null ? !!(depAccess.view || depAccess.add || depAccess.edit) : false);
         if (!depHasAccess) {
           errors.push(`Module '${module}' requires '${dep}' to be enabled`);
@@ -275,12 +275,12 @@ const validateModuleAccess = (moduleAccess) => {
 // Get all buyers for the current MAN user
 const getBuyers = async (req, res) => {
   try {
-    const manUserId = req.user.userId;
+    const manUserId = req.user._id;
     const { page = 1, limit = 10, search = '', status = '' } = req.query;
 
     // Build query
     const query = { createdBy: manUserId };
-    
+
     if (search) {
       query.$or = [
         { companyName: { $regex: search, $options: 'i' } },
@@ -320,6 +320,7 @@ const getBuyers = async (req, res) => {
 
 // Create new buyer
 const createBuyer = async (req, res) => {
+  let createdUserId = null; // Track for rollback
   try {
     // Check validation errors
     const errors = validationResult(req);
@@ -333,7 +334,7 @@ const createBuyer = async (req, res) => {
       lastName,
       email,
       password,
-      
+
       // Company details
       companyName,
       contactPersonName,
@@ -342,23 +343,37 @@ const createBuyer = async (req, res) => {
       businessType,
       registrationNumber,
       taxId,
-      
+
       // Address details
       address,
       city,
       state,
       country,
       postalCode,
-      
+
       status = 'active'
     } = req.body;
 
-    const manUserId = req.user.userId;
+    // req.user is the full Mongoose document from auth middleware - use _id
+    const manUserId = req.user._id;
+    console.log('createBuyer called by manUserId:', manUserId);
 
-    // Check if email already exists
+    // Check if email already exists in Users collection
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return errorResponse(res, 409, 'User with this email already exists');
+    }
+
+    // Also check for orphan buyer records (buyer exists but user was deleted)
+    const orphanBuyer = await Buyer.findOne({ 'contactPerson.email': email });
+    if (orphanBuyer) {
+      // Check if the associated user still exists
+      const associatedUser = await User.findById(orphanBuyer.userId);
+      if (!associatedUser) {
+        // This is an orphan buyer record - delete it before creating new one
+        console.log('Deleting orphan buyer record for email:', email);
+        await Buyer.findByIdAndDelete(orphanBuyer._id);
+      }
     }
 
     // Create user account for buyer
@@ -373,42 +388,55 @@ const createBuyer = async (req, res) => {
     });
 
     await newUser.save();
+    createdUserId = newUser._id; // Track for rollback
+    console.log('User created successfully:', newUser._id);
 
     // Create buyer profile with nested fields matching Buyer model schema
     const newBuyer = new Buyer({
       userId: newUser._id,
-      companyName,
+      companyName: companyName || `${firstName} ${lastName}`,
       contactPerson: {
-        name: contactPersonName,
+        name: contactPersonName || `${firstName} ${lastName}`,
         email: contactPersonEmail || email,
-        phone: contactPersonPhone
+        phone: contactPersonPhone || ''
       },
       companyInfo: {
-        registrationNumber,
-        taxId,
-        industry: businessType
+        registrationNumber: registrationNumber || '',
+        taxId: taxId || '',
+        industry: businessType || ''
       },
       address: {
-        street: address,
-        city,
-        state,
-        country,
-        postalCode
+        street: address || '',
+        city: city || '',
+        state: state || '',
+        country: country || '',
+        postalCode: postalCode || ''
       },
       status,
       createdBy: manUserId
     });
 
     await newBuyer.save();
+    console.log('Buyer created successfully:', newBuyer._id);
 
     // Return buyer with user details
     const buyer = await Buyer.findById(newBuyer._id)
       .populate('userId', 'firstName lastName email role status');
-    
+
     return successResponse(res, 201, 'Buyer created successfully', buyer);
   } catch (error) {
-    console.error('Error creating buyer:', error);
-    return errorResponse(res, 500, 'Failed to create buyer');
+    console.error('Error creating buyer:', error.message);
+    console.error('Full error:', JSON.stringify(error, null, 2));
+    // Rollback: delete orphan user if buyer creation failed after user was created
+    if (createdUserId) {
+      try {
+        await User.findByIdAndDelete(createdUserId);
+        console.log('Rolled back orphan user:', createdUserId);
+      } catch (rollbackError) {
+        console.error('Rollback failed:', rollbackError);
+      }
+    }
+    return errorResponse(res, 500, `Failed to create buyer: ${error.message}`);
   }
 };
 
@@ -416,7 +444,7 @@ const createBuyer = async (req, res) => {
 const getBuyerById = async (req, res) => {
   try {
     const { buyerId } = req.params;
-    const manUserId = req.user.userId;
+    const manUserId = req.user._id;
 
     const buyer = await Buyer.findOne({
       _id: buyerId,
@@ -475,7 +503,7 @@ const updateBuyer = async (req, res) => {
     }
 
     const { buyerId } = req.params;
-    const manUserId = req.user.userId;
+    const manUserId = req.user._id;
     const updateData = req.body;
 
     // Find buyer
@@ -495,9 +523,9 @@ const updateBuyer = async (req, res) => {
       if (updateData.lastName) userUpdateData.lastName = updateData.lastName;
       if (updateData.email) {
         // Check if email already exists (excluding current user)
-        const existingUser = await User.findOne({ 
-          email: updateData.email, 
-          _id: { $ne: buyer.userId } 
+        const existingUser = await User.findOne({
+          email: updateData.email,
+          _id: { $ne: buyer.userId }
         });
         if (existingUser) {
           return errorResponse(res, 409, 'User with this email already exists');
@@ -533,7 +561,7 @@ const updateBuyerStatus = async (req, res) => {
   try {
     const { buyerId } = req.params;
     const { status } = req.body;
-    const manUserId = req.user.userId;
+    const manUserId = req.user._id;
 
     if (!['active', 'inactive'].includes(status)) {
       return errorResponse(res, 400, 'Invalid status. Must be active or inactive');
@@ -567,7 +595,7 @@ const updateBuyerStatus = async (req, res) => {
 // Export buyers to Excel/CSV
 const exportBuyers = async (req, res) => {
   try {
-    const manUserId = req.user.userId;
+    const manUserId = req.user._id;
     const { format = 'xlsx' } = req.query;
 
     const buyers = await Buyer.find({ createdBy: manUserId })
@@ -600,7 +628,7 @@ const exportBuyers = async (req, res) => {
     // Set response headers
     const filename = `buyers-export-${new Date().toISOString().split('T')[0]}.${format}`;
     res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
-    
+
     if (format === 'csv') {
       res.setHeader('Content-Type', 'text/csv');
       const csv = xlsx.utils.sheet_to_csv(worksheet);
@@ -621,7 +649,7 @@ const exportBuyers = async (req, res) => {
 // Get all purchase orders for the current MAN user
 const getPurchaseOrders = async (req, res) => {
   try {
-    const manUserId = req.user.userId;
+    const manUserId = req.user._id;
     const { page = 1, limit = 10, search = '', status = '', buyerId = '' } = req.query;
 
     // Build query - get orders where the buyer was created by this MAN user
@@ -630,7 +658,7 @@ const getPurchaseOrders = async (req, res) => {
     const buyerIds = buyers.map(buyer => buyer._id);
 
     const query = { buyer: { $in: buyerIds } };
-    
+
     if (search) {
       query.$or = [
         { poNumber: { $regex: search, $options: 'i' } }
@@ -703,7 +731,7 @@ const createPurchaseOrder = async (req, res) => {
       shippingCost = 0
     } = req.body;
 
-    const manUserId = req.user.userId;
+    const manUserId = req.user._id;
 
     // Verify buyer belongs to this MAN user
     const buyer = await Buyer.findOne({ userId: buyerId, createdBy: manUserId });
@@ -773,7 +801,7 @@ const createPurchaseOrder = async (req, res) => {
     // Generate QR code
     const qrCodeUrl = `${process.env.FRONTEND_URL}/public/purchase-order/${newPurchaseOrder._id}`;
     const qrCodeDataUrl = await qrcode.toDataURL(qrCodeUrl);
-    
+
     newPurchaseOrder.qrCode = qrCodeDataUrl;
     await newPurchaseOrder.save();
 
@@ -787,7 +815,7 @@ const createPurchaseOrder = async (req, res) => {
         }
       })
       .populate('products.product', 'name description');
-    
+
     return successResponse(res, 201, 'Purchase order created successfully', order);
   } catch (error) {
     console.error('Error creating purchase order:', error);
@@ -799,7 +827,7 @@ const createPurchaseOrder = async (req, res) => {
 const getPurchaseOrderById = async (req, res) => {
   try {
     const { poId } = req.params;
-    const manUserId = req.user.userId;
+    const manUserId = req.user._id;
 
     // Get order and verify access through buyer
     const order = await PurchaseOrder.findById(poId)
@@ -841,7 +869,7 @@ const updatePurchaseOrderStatus = async (req, res) => {
 
     const { poId } = req.params;
     const { status, notes = '' } = req.body;
-    const manUserId = req.user.userId;
+    const manUserId = req.user._id;
 
     const validStatuses = ['pending', 'confirmed', 'in_production', 'ready_for_dispatch', 'dispatched_from_port', 'in_transit', 'arrived_at_port', 'customs_clearance', 'received_into_warehouse', 'dispatched_from_warehouse', 'delivered', 'cancelled'];
     if (!validStatuses.includes(status)) {
@@ -919,7 +947,7 @@ const updatePurchaseOrderStatus = async (req, res) => {
 const getPurchaseOrderQRCode = async (req, res) => {
   try {
     const { poId } = req.params;
-    
+
     const order = await PurchaseOrder.findById(poId);
     if (!order) {
       return errorResponse(res, 404, 'Purchase order not found');
@@ -929,7 +957,7 @@ const getPurchaseOrderQRCode = async (req, res) => {
       // Generate QR code if it doesn't exist
       const qrCodeUrl = `${process.env.FRONTEND_URL}/public/purchase-order/${poId}`;
       const qrCodeDataUrl = await qrcode.toDataURL(qrCodeUrl);
-      
+
       order.qrCode = qrCodeDataUrl;
       await order.save();
     }
@@ -949,7 +977,7 @@ const getPurchaseOrderQRCode = async (req, res) => {
 // Get dashboard statistics for MAN user
 const getDashboardStats = async (req, res) => {
   try {
-    const manUserId = req.user.userId;
+    const manUserId = req.user._id;
 
     // Get buyers created by this MAN user
     const totalBuyers = await Buyer.countDocuments({ createdBy: manUserId });
@@ -996,7 +1024,7 @@ const getDashboardStats = async (req, res) => {
 // Get real-time inventory report
 const getInventoryReport = async (req, res) => {
   try {
-    const manUserId = req.user.userId;
+    const manUserId = req.user._id;
 
     // Get inventory data - for MAN users, show all inventory they have access to
     const inventory = await WarehouseStock.aggregate([
@@ -1052,7 +1080,7 @@ const getInventoryReport = async (req, res) => {
 // Get warehouse-wise products report
 const getWarehouseStockReport = async (req, res) => {
   try {
-    const manUserId = req.user.userId;
+    const manUserId = req.user._id;
     const { warehouseId } = req.query;
 
     // Build query
@@ -1105,7 +1133,7 @@ const generateOrderNumber = async () => {
   const prefix = 'PO';
   const year = new Date().getFullYear();
   const month = String(new Date().getMonth() + 1).padStart(2, '0');
-  
+
   // Find the last order number for this month
   const lastOrder = await PurchaseOrder.findOne({
     poNumber: { $regex: `^${prefix}-${year}${month}-` }

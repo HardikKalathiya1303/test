@@ -52,7 +52,7 @@ export default function CreateBuyer() {
     try {
       setSubmitting(true);
       const response = await api.post('/man-user/buyers', formData);
-      
+
       if (response.data.success) {
         toast.success('Buyer created successfully');
         router.push('/man-user/buyers');

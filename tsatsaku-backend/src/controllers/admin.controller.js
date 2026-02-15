@@ -30,10 +30,10 @@ const ADMIN_MODULE_ACCESS = {
 // Get all sub-admins for the current admin
 const getSubAdmins = async (req, res) => {
   try {
-    const adminId = req.user.userId;
-    
+    const adminId = req.user._id;
+
     // Get all users created by this admin with admin role
-    const subAdmins = await User.find({ 
+    const subAdmins = await User.find({
       createdBy: adminId,
       role: 'admin'
     }).select('-password').sort({ createdAt: -1 });
@@ -64,7 +64,7 @@ const createSubAdmin = async (req, res) => {
       status = 'active'
     } = req.body;
 
-    const adminId = req.user.userId;
+    const adminId = req.user._id;
 
     // Check if email already exists
     const existingUser = await User.findOne({ email });
@@ -96,7 +96,7 @@ const createSubAdmin = async (req, res) => {
 
     // Return user without password
     const subAdmin = await User.findById(newSubAdmin._id).select('-password');
-    
+
     return successResponse(res, 201, 'Sub-admin created successfully', subAdmin);
   } catch (error) {
     console.error('Error creating sub-admin:', error);
@@ -108,7 +108,7 @@ const createSubAdmin = async (req, res) => {
 const getSubAdminById = async (req, res) => {
   try {
     const { userId } = req.params;
-    const adminId = req.user.userId;
+    const adminId = req.user._id;
 
     const subAdmin = await User.findOne({
       _id: userId,
@@ -137,7 +137,7 @@ const updateSubAdmin = async (req, res) => {
     }
 
     const { userId } = req.params;
-    const adminId = req.user.userId;
+    const adminId = req.user._id;
     const {
       firstName,
       lastName,
@@ -187,7 +187,7 @@ const updateSubAdmin = async (req, res) => {
 
     // Return updated user without password
     const updatedSubAdmin = await User.findById(userId).select('-password');
-    
+
     return successResponse(res, 200, 'Sub-admin updated successfully', updatedSubAdmin);
   } catch (error) {
     console.error('Error updating sub-admin:', error);
@@ -200,7 +200,7 @@ const updateSubAdminStatus = async (req, res) => {
   try {
     const { userId } = req.params;
     const { status } = req.body;
-    const adminId = req.user.userId;
+    const adminId = req.user._id;
 
     if (!['active', 'inactive'].includes(status)) {
       return errorResponse(res, 400, 'Invalid status. Must be active or inactive');
@@ -246,7 +246,7 @@ const getAllBuyers = async (req, res) => {
 
     // Build query - Admin can see all buyers
     const query = {};
-    
+
     if (search) {
       query.$or = [
         { companyName: { $regex: search, $options: 'i' } },
@@ -300,7 +300,7 @@ const createAdminBuyer = async (req, res) => {
       lastName,
       email,
       password,
-      
+
       // Company details
       companyName,
       contactPersonName,
@@ -309,18 +309,18 @@ const createAdminBuyer = async (req, res) => {
       businessType,
       registrationNumber,
       taxId,
-      
+
       // Address details
       address,
       city,
       state,
       country,
       postalCode,
-      
+
       status = 'active'
     } = req.body;
 
-    const adminId = req.user.userId;
+    const adminId = req.user._id;
 
     // Check if email already exists
     const existingUser = await User.findOne({ email });
@@ -366,7 +366,7 @@ const createAdminBuyer = async (req, res) => {
     const buyer = await Buyer.findById(newBuyer._id)
       .populate('userId', 'firstName lastName email role status')
       .populate('createdBy', 'firstName lastName email role');
-    
+
     return successResponse(res, 201, 'Buyer created successfully', buyer);
   } catch (error) {
     console.error('Error creating buyer:', error);
@@ -451,9 +451,9 @@ const updateAdminBuyer = async (req, res) => {
       if (updateData.lastName) userUpdateData.lastName = updateData.lastName;
       if (updateData.email) {
         // Check if email already exists (excluding current user)
-        const existingUser = await User.findOne({ 
-          email: updateData.email, 
-          _id: { $ne: buyer.userId } 
+        const existingUser = await User.findOne({
+          email: updateData.email,
+          _id: { $ne: buyer.userId }
         });
         if (existingUser) {
           return errorResponse(res, 409, 'User with this email already exists');
@@ -476,7 +476,7 @@ const updateAdminBuyer = async (req, res) => {
       buyerUpdateData,
       { new: true }
     ).populate('userId', 'firstName lastName email role status')
-     .populate('createdBy', 'firstName lastName email role');
+      .populate('createdBy', 'firstName lastName email role');
 
     return successResponse(res, 200, 'Buyer updated successfully', updatedBuyer);
   } catch (error) {
@@ -554,7 +554,7 @@ const exportAllBuyers = async (req, res) => {
     // Set response headers
     const filename = `all-buyers-export-${new Date().toISOString().split('T')[0]}.${format}`;
     res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
-    
+
     if (format === 'csv') {
       res.setHeader('Content-Type', 'text/csv');
       const csv = xlsx.utils.sheet_to_csv(worksheet);
@@ -611,11 +611,11 @@ const getProductCategories = async (req, res) => {
 
     // Build query
     let query = {};
-    
+
     if (search) {
       query.name = { $regex: search, $options: 'i' };
     }
-    
+
     if (status !== 'all') {
       query.status = status;
     }
@@ -625,12 +625,12 @@ const getProductCategories = async (req, res) => {
       const categories = await ProductCategory.find(query)
         .populate('parentCategory', 'name')
         .sort({ level: 1, name: 1 });
-      
+
       return successResponse(res, 200, 'Product categories retrieved successfully', { categories });
     } else {
       // Return paginated results
       const skip = (page - 1) * limit;
-      
+
       const [categories, totalCategories] = await Promise.all([
         ProductCategory.find(query)
           .populate('parentCategory', 'name')
@@ -670,7 +670,7 @@ const createProductCategory = async (req, res) => {
     }
 
     const { name, parentCategory, status = 'active', description } = req.body;
-    const adminId = req.user.userId;
+    const adminId = req.user._id;
 
     // Check if category name already exists
     const existingCategory = await ProductCategory.findOne({ name: { $regex: `^${name}$`, $options: 'i' } });
@@ -779,7 +779,7 @@ const updateProductCategory = async (req, res) => {
 
     // Check if new name conflicts with existing (excluding current category)
     if (name && name !== category.name) {
-      const existingCategory = await ProductCategory.findOne({ 
+      const existingCategory = await ProductCategory.findOne({
         name: { $regex: `^${name}$`, $options: 'i' },
         _id: { $ne: categoryId }
       });
@@ -806,7 +806,7 @@ const updateProductCategory = async (req, res) => {
           // Add recursive check for deeper levels if needed
         ]
       });
-      
+
       if (descendants.some(desc => desc._id.toString() === parentCategory)) {
         return errorResponse(res, 400, 'Cannot create circular reference - selected parent is a descendant of this category');
       }
@@ -835,7 +835,7 @@ const updateProductCategory = async (req, res) => {
       },
       { new: true, runValidators: true }
     ).populate('parentCategory', 'name')
-     .populate('createdBy', 'firstName lastName email');
+      .populate('createdBy', 'firstName lastName email');
 
     // If parent changed, update levels of all descendants
     if (parentCategory !== category.parentCategory?.toString()) {
@@ -896,7 +896,7 @@ const getProducts = async (req, res) => {
 
     // Build query
     let query = {};
-    
+
     // Search filter
     if (search) {
       query.$or = [
@@ -1063,7 +1063,7 @@ const updateProduct = async (req, res) => {
 
     // If SKU is being updated, check for uniqueness
     if (updateData.sku && updateData.sku.toUpperCase() !== existingProduct.sku) {
-      const existingSku = await Product.findOne({ 
+      const existingSku = await Product.findOne({
         sku: updateData.sku.toUpperCase(),
         _id: { $ne: id }
       });
@@ -1075,9 +1075,9 @@ const updateProduct = async (req, res) => {
 
     // Verify category if being updated
     if (updateData.category) {
-      const categoryDoc = await ProductCategory.findOne({ 
-        _id: updateData.category, 
-        status: 'active' 
+      const categoryDoc = await ProductCategory.findOne({
+        _id: updateData.category,
+        status: 'active'
       });
       if (!categoryDoc) {
         return errorResponse(res, 400, 'Invalid or inactive product category');
@@ -1090,7 +1090,7 @@ const updateProduct = async (req, res) => {
       updateData,
       { new: true, runValidators: true }
     ).populate('category', 'name')
-     .populate('createdBy', 'firstname lastname email');
+      .populate('createdBy', 'firstname lastname email');
 
     return successResponse(res, 200, 'Product updated successfully', product);
 
@@ -1179,7 +1179,7 @@ const getProductStats = async (req, res) => {
     // Get products by category
     const productsByCategory = await Product.aggregate([
       { $match: { status: 'active' } },
-      { 
+      {
         $group: {
           _id: '$category',
           count: { $sum: 1 }
@@ -1229,7 +1229,7 @@ const getPorts = async (req, res) => {
 
     // Build query
     let query = {};
-    
+
     // Search filter
     if (search) {
       query.$or = [
@@ -1356,7 +1356,7 @@ const updatePort = async (req, res) => {
 
     // If code is being updated, check for uniqueness
     if (updateData.code && updateData.code.toUpperCase() !== existingPort.code) {
-      const existingCode = await Port.findOne({ 
+      const existingCode = await Port.findOne({
         code: updateData.code.toUpperCase(),
         _id: { $ne: id }
       });
@@ -1414,7 +1414,7 @@ const getWarehouses = async (req, res) => {
 
     // Build query
     let query = {};
-    
+
     // Search filter
     if (search) {
       query.$or = [
@@ -1543,7 +1543,7 @@ const updateWarehouse = async (req, res) => {
 
     // If code is being updated, check for uniqueness
     if (updateData.code && updateData.code.toUpperCase() !== existingWarehouse.code) {
-      const existingCode = await Warehouse.findOne({ 
+      const existingCode = await Warehouse.findOne({
         code: updateData.code.toUpperCase(),
         _id: { $ne: id }
       });
@@ -1604,7 +1604,7 @@ const getWarehouseStocks = async (req, res) => {
 
     // Build query
     let query = {};
-    
+
     // Warehouse filter
     if (warehouse) {
       query.warehouse = warehouse;
@@ -1770,8 +1770,8 @@ const updateWarehouseStock = async (req, res) => {
       updateData,
       { new: true, runValidators: true }
     ).populate('warehouse', 'name code')
-     .populate('product', 'name sku')
-     .populate('createdBy', 'firstname lastname email');
+      .populate('product', 'name sku')
+      .populate('createdBy', 'firstname lastname email');
 
     return successResponse(res, 200, 'Warehouse stock updated successfully', stock);
 
@@ -1859,7 +1859,7 @@ const getStockHistory = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const totalHistory = stock.stockHistory.length;
-    
+
     // Get paginated history (sorted by most recent first)
     const history = stock.stockHistory
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
@@ -1889,7 +1889,7 @@ const getLowStockAlerts = async (req, res) => {
     const { warehouse } = req.query;
 
     const query = { isLowStock: true, status: 'active' };
-    
+
     if (warehouse) {
       query.warehouse = warehouse;
     }
@@ -1928,7 +1928,7 @@ const getStockStats = async (req, res) => {
     // Get stock by warehouse
     const stockByWarehouse = await WarehouseStock.aggregate([
       { $match: { status: 'active' } },
-      { 
+      {
         $group: {
           _id: '$warehouse',
           totalItems: { $sum: 1 },
@@ -2070,24 +2070,24 @@ const getDashboardStats = async (req, res) => {
     // Growth analytics (compared to previous period)
     const prevStartDate = new Date(startDate);
     prevStartDate.setDate(prevStartDate.getDate() - periodDays);
-    
+
     const [
       prevUsers,
       prevBuyers,
       prevProducts,
       prevOrders
     ] = await Promise.all([
-      User.countDocuments({ 
-        createdAt: { $gte: prevStartDate, $lt: startDate } 
+      User.countDocuments({
+        createdAt: { $gte: prevStartDate, $lt: startDate }
       }),
-      Buyer.countDocuments({ 
-        createdAt: { $gte: prevStartDate, $lt: startDate } 
+      Buyer.countDocuments({
+        createdAt: { $gte: prevStartDate, $lt: startDate }
       }),
-      Product.countDocuments({ 
-        createdAt: { $gte: prevStartDate, $lt: startDate } 
+      Product.countDocuments({
+        createdAt: { $gte: prevStartDate, $lt: startDate }
       }),
-      PurchaseOrder.countDocuments({ 
-        createdAt: { $gte: prevStartDate, $lt: startDate } 
+      PurchaseOrder.countDocuments({
+        createdAt: { $gte: prevStartDate, $lt: startDate }
       }).catch(() => 0)
     ]);
 
@@ -2131,10 +2131,10 @@ const getDashboardStats = async (req, res) => {
         categories: { total: totalCategories, active: activeCategories },
         warehouses: { total: totalWarehouses, active: activeWarehouses },
         ports: { total: totalPorts, active: activePorts },
-        stock: { 
-          totalRecords: totalStockRecords, 
+        stock: {
+          totalRecords: totalStockRecords,
           lowStock: lowStockProducts,
-          outOfStock: outOfStockItems 
+          outOfStock: outOfStockItems
         },
         orders: { total: totalPurchaseOrders, pending: pendingOrders, recent: recentOrders },
         queries: { total: totalContactQueries, unread: unreadQueries, recent: recentQueries },
@@ -2301,7 +2301,7 @@ const getContactQueries = async (req, res) => {
 
     // Build query
     let query = {};
-    
+
     // Status filter
     if (status && status !== 'all') {
       query.status = status;
@@ -2393,7 +2393,7 @@ const updateContactQuery = async (req, res) => {
     }
 
     const updateData = {};
-    
+
     if (status) {
       updateData.status = status;
       if (status === 'read' && query.status === 'unread') {
@@ -2459,7 +2459,7 @@ const bulkUpdateContactQueries = async (req, res) => {
     }
 
     const updateData = { status };
-    
+
     if (status === 'read') {
       updateData.readAt = new Date();
     }
@@ -2486,7 +2486,7 @@ const getContentPages = async (req, res) => {
 
     // Build query
     let query = {};
-    
+
     if (status && status !== 'all') {
       query.status = status;
     }
@@ -2513,7 +2513,7 @@ const getContentPage = async (req, res) => {
     const { identifier } = req.params; // Can be ID or pageType
 
     let contentPage;
-    
+
     // Check if identifier is a valid ObjectId
     if (mongoose.Types.ObjectId.isValid(identifier)) {
       contentPage = await ContentPage.findById(identifier)
@@ -2550,7 +2550,7 @@ const upsertContentPage = async (req, res) => {
 
     // Check if page already exists
     const existingPage = await ContentPage.findOne({ pageType });
-    
+
     if (existingPage) {
       // Update existing page
       existingPage.title = title;
@@ -2559,11 +2559,11 @@ const upsertContentPage = async (req, res) => {
       existingPage.metaDescription = metaDescription;
       existingPage.status = status;
       existingPage.lastUpdatedBy = req.user._id;
-      
+
       await existingPage.save();
-      
+
       await existingPage.populate('lastUpdatedBy', 'firstname lastname email');
-      
+
       return successResponse(res, 200, 'Content page updated successfully', existingPage);
     } else {
       // Create new page
@@ -2578,7 +2578,7 @@ const upsertContentPage = async (req, res) => {
       });
 
       await contentPage.save();
-      
+
       await contentPage.populate('lastUpdatedBy', 'firstname lastname email');
 
       return successResponse(res, 201, 'Content page created successfully', contentPage);
@@ -2622,7 +2622,7 @@ const getEmailLogs = async (req, res) => {
 
     // Build query
     let query = {};
-    
+
     if (status && status !== 'all') {
       query.status = status;
     }
@@ -2774,7 +2774,7 @@ const resendFailedEmails = async (req, res) => {
     // Reset status to pending for resending
     const result = await EmailLog.updateMany(
       { _id: { $in: emailIds }, status: 'failed' },
-      { 
+      {
         status: 'pending',
         errorMessage: null,
         sentAt: null
@@ -2816,7 +2816,7 @@ const clearOldEmailLogs = async (req, res) => {
 // Helper function to update descendant levels recursively
 const updateDescendantLevels = async (parentId, parentLevel) => {
   const children = await ProductCategory.find({ parentCategory: parentId });
-  
+
   for (const child of children) {
     const newChildLevel = parentLevel + 1;
     await ProductCategory.findByIdAndUpdate(child._id, { level: newChildLevel });
